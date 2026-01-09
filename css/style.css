@@ -1,0 +1,792 @@
+/* --- 1. 全局布局 --- */
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            font-family: 'Segoe UI', 'Helavetica Neue', Arial, sans-serif; 
+            overflow: hidden; 
+            background-color: #f5f5f7; 
+        }
+
+        /* --- 2. 顶部标题栏 (深灰蓝主色) --- */
+        .page-header {
+            width: 100%;
+            height: 10vh; 
+            background: #3A4759; /* [配色] 深灰蓝 */
+            box-shadow: 0 4px 12px rgba(58, 71, 89, 0.3);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            box-sizing: border-box;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        .page-header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #ffffff; 
+            font-weight: 500;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+        }
+
+        .header-icon {
+            width: 28px;
+            height: 28px;
+            background-color: #5D5A4F; /* [配色] 暖调灰黄 */
+            border-radius: 4px;
+            margin-right: 15px;
+            display: inline-block;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.2);
+        }
+
+        /* --- 3. 地图容器 --- */
+        #map { 
+            width: 100%; 
+            position: absolute;
+            top: 10vh; 
+            height: 90vh; 
+            left: 0;
+        }
+
+        /* --- 4. 悬浮控制面板 --- */
+        .control-panel {
+            position: absolute; 
+            top: 12vh;
+            right: 70px; /* 向右调整，避免被按钮遮挡 */
+            width: 320px;
+            background: rgba(255, 255, 255, 0.98); 
+            padding: 24px;
+            border-radius: 12px; 
+            box-shadow: 0 8px 24px rgba(58, 71, 89, 0.2); 
+            z-index: 11;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(58, 71, 89, 0.1);
+            max-height: 60vh; 
+            overflow-y: auto;
+            display: none; /* 默认隐藏 */
+            transition: all 0.3s ease;
+        }
+
+        .control-panel.active {
+            display: block; /* 显示时使用block */
+        }
+
+        .panel-header { 
+            font-size: 16px; 
+            font-weight: 700; 
+            margin-bottom: 20px; 
+            border-bottom: 2px solid #3D5A5F; /* [配色] 莫兰迪墨绿 */
+            padding-bottom: 12px; 
+            color: #3A4759; /* [配色] 深灰蓝 */
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .layer-item { 
+            background: #f9f9fa; 
+            border: 1px solid #e0e0e0; 
+            padding: 14px; 
+            margin-bottom: 12px; 
+            border-radius: 8px; 
+            transition: all 0.3s ease;
+        }
+        
+        .layer-item:hover { 
+            border-color: #3D5A5F; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05); 
+        }
+
+        .layer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+
+        .layer-name { 
+            font-weight: 600; 
+            font-size: 14px; 
+            color: #3A4759; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            transition: color 0.2s; 
+        }
+        .layer-name:hover { 
+            color: #5C4B51; /* [配色] 低饱和暗红 */
+            text-decoration: underline; 
+        }
+        .layer-name::before { content: "🔍"; font-size: 12px; margin-right: 8px; opacity: 0.5; filter: grayscale(100%); }
+
+        .style-control { display: flex; align-items: center; font-size: 12px; color: #5D5A4F; margin-top: 8px; }
+        
+        input[type="color"] { border: none; width: 24px; height: 24px; cursor: pointer; margin-left: auto; background: none; border-radius: 50%; overflow: hidden; }
+        input[type="range"] { margin-left: 10px; flex: 1; cursor: pointer; accent-color: #3D5A5F; }
+        .opacity-value { width: 35px; text-align: right; color: #3A4759; font-weight: bold;}
+
+        /* --- 5. 其他组件 --- */
+        #mouse-position {
+            position: absolute; 
+            bottom: 10px; 
+            right: 10px; 
+            background: rgba(58, 71, 89, 0.85); 
+            color: #fff; 
+            padding: 6px 16px;
+            border-radius: 4px; 
+            font-size: 12px; 
+            z-index: 10; 
+            pointer-events: none;
+            font-family: 'Consolas', monospace;
+            backdrop-filter: blur(2px);
+        }
+        
+        #loading-indicator {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(58, 71, 89, 0.9); 
+            color: white; padding: 15px 30px; border-radius: 30px;
+            display: none; z-index: 1000; font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .visible-toggle {
+            accent-color: #3D5A5F; 
+            transform: scale(1.1);
+        }
+
+        /* --- 工具按钮 --- */
+        .tool-buttons {
+            position: absolute;
+            top: 12vh;
+            right: 20px;
+            z-index: 12; /* 比控制面板更高 */
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .tool-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: none;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(58, 71, 89, 0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .tool-btn:hover {
+            background-color: #f0f0f5;
+            transform: translateY(-2px);
+        }
+
+        .tool-btn.active {
+            background-color: #3D5A5F;
+            color: white;
+        }
+
+        .measure-tooltip {
+            position: absolute;
+            background-color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            font-size: 12px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .measure-tooltip-static {
+            background-color: #3A4759;
+            color: white;
+            padding: 5px 10px;
+        }
+
+        /* ========== 绘制提示专属样式（与测量统一视觉） ========== */
+        .draw-tooltip {
+            background-color: rgba(80, 130, 200, 0.95);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.5);
+            position: absolute;
+            padding: 4px 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            font-size: 12px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        .draw-tip-static {
+            background-color: #3A4759;
+            color: #fff;
+            padding: 6px 12px;
+        }
+
+        /* ========== 全局操作状态提示条 ========== */
+        #operation-tip {
+            position: absolute;
+            top: 12vh;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(58, 71, 89, 0.9);
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            z-index: 15;
+            pointer-events: none;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        /* --- 左上角底图切换按钮和选择器 --- */
+        .basemap-container {
+            position: absolute;
+            top: 12vh;
+            left: 80px; /* 向右移动，给地图缩放控件留出空间 */
+            z-index: 11;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .basemap-btn-main {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: none;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(58, 71, 89, 0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .basemap-btn-main:hover {
+            background-color: #f0f0f5;
+            transform: translateY(-2px);
+        }
+
+        .basemap-btn-main.active {
+            background-color: #3D5A5F;
+            color: white;
+        }
+
+        .basemap-selector {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(58, 71, 89, 0.2);
+            overflow: hidden;
+            display: none; /* 默认隐藏 */
+            min-width: 120px;
+        }
+
+        .basemap-selector.active {
+            display: block; /* 显示时使用block */
+        }
+
+        .basemap-option {
+            border: none;
+            background: none;
+            padding: 10px 16px;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 14px;
+        }
+
+        .basemap-option:hover, .basemap-option.active {
+            background-color: #f0f0f5;
+            font-weight: 500;
+        }
+
+        /* 关闭按钮样式 */
+        .close-panel {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: #3A4759;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .close-panel:hover {
+            background-color: rgba(58, 71, 89, 0.1);
+        }
+
+        /* ========== 新增：图查属性功能样式 ========== */
+        .feature-info-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(58, 71, 89, 0.2);
+            padding: 0;
+            width: 350px;
+            max-height: 70vh;
+            overflow-y: auto;
+            display: none;
+            z-index: 20;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(58, 71, 89, 0.1);
+        }
+        
+        .feature-info-popup.active {
+            display: block;
+        }
+        
+        .feature-info-header {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #3A4759;
+            border-bottom: 2px solid #3D5A5F;
+            padding: 16px 16px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f9f9fa;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        .feature-info-content {
+            padding: 16px;
+        }
+        
+        .feature-info-item {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .feature-info-label {
+            font-weight: 600;
+            color: #3A4759;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        
+        .feature-info-value {
+            color: #5D5A4F;
+            font-size: 14px;
+            word-break: break-word;
+        }
+        
+        .feature-info-empty {
+            text-align: center;
+            color: #999;
+            font-style: italic;
+            padding: 20px 0;
+        }
+
+        /* ========== 新增：框选查询结果面板样式 ========== */
+        .feature-batch-results-panel {
+            position: absolute;
+            top: 12vh;
+            left: 160px;
+            z-index: 12;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(58, 71, 89, 0.2);
+            padding: 0;
+            width: 500px;
+            max-height: 70vh;
+            overflow: hidden;
+            display: none;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(58, 71, 89, 0.1);
+        }
+        
+        .feature-batch-results-panel.active {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .batch-results-header {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 0;
+            color: #3A4759;
+            border-bottom: 2px solid #3D5A5F;
+            padding: 16px 16px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f9f9fa;
+            border-radius: 12px 12px 0 0;
+            flex-shrink: 0;
+        }
+        
+        .batch-results-content {
+            padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .batch-results-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .batch-results-count {
+            font-size: 14px;
+            font-weight: 600;
+            color: #3D5A5F;
+        }
+        
+        .batch-results-layers {
+            font-size: 12px;
+            color: #5D5A4F;
+        }
+        
+        .layer-results-group {
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .layer-results-header {
+            background-color: #f5f7fa;
+            padding: 10px 16px;
+            font-weight: 600;
+            color: #3A4759;
+            font-size: 14px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .layer-results-header:hover {
+            background-color: #e8ebf0;
+        }
+        
+        .layer-results-count {
+            background-color: #3D5A5F;
+            color: white;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 10px;
+        }
+        
+        .layer-results-content {
+            max-height: 300px;
+            overflow-y: auto;
+            display: block;
+        }
+        
+        .layer-results-content.collapsed {
+            display: none;
+        }
+        
+        .batch-feature-item {
+            padding: 10px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .batch-feature-item:hover {
+            background-color: #f9f9fa;
+        }
+        
+        .batch-feature-item:last-child {
+            border-bottom: none;
+        }
+        
+        .batch-feature-props {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .batch-prop-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .batch-prop-label {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 2px;
+        }
+        
+        .batch-prop-value {
+            font-size: 13px;
+            color: #3A4759;
+            word-break: break-word;
+        }
+        
+        .batch-results-actions {
+            display: flex;
+            gap: 10px;
+            padding: 16px;
+            border-top: 1px solid #e0e0e0;
+            flex-shrink: 0;
+        }
+        
+        .batch-action-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .batch-action-btn.primary {
+            background-color: #3D5A5F;
+            color: white;
+        }
+        
+        .batch-action-btn.primary:hover {
+            background-color: #2a3f44;
+        }
+        
+        .batch-action-btn.secondary {
+            background-color: #f0f0f5;
+            color: #3A4759;
+        }
+        
+        .batch-action-btn.secondary:hover {
+            background-color: #e0e0ea;
+        }
+        
+        /* ========== 新增：属性查图功能样式 ========== */
+        .attribute-query-panel {
+            position: absolute;
+            top: 12vh;
+            left: 160px;
+            z-index: 12;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(58, 71, 89, 0.2);
+            padding: 16px;
+            width: 320px;
+            display: none;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(58, 71, 89, 0.1);
+        }
+        
+        .attribute-query-panel.active {
+            display: block;
+        }
+        
+        .query-section {
+            margin-bottom: 20px;
+        }
+        
+        .query-section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #3A4759;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .layer-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .layer-selector-btn {
+            padding: 6px 12px;
+            background-color: #f0f0f5;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .layer-selector-btn:hover {
+            background-color: #e0e0ea;
+        }
+        
+        .layer-selector-btn.active {
+            background-color: #3D5A5F;
+            color: white;
+            border-color: #3D5A5F;
+        }
+        
+        .query-control {
+            margin-bottom: 12px;
+        }
+        
+        .query-control label {
+            display: block;
+            font-size: 13px;
+            color: #5D5A4F;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        
+        .query-control select,
+        .query-control input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        
+        .query-control select:focus,
+        .query-control input:focus {
+            outline: none;
+            border-color: #3D5A5F;
+        }
+        
+        .query-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .query-button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .query-button.primary {
+            background-color: #3D5A5F;
+            color: white;
+        }
+        
+        .query-button.primary:hover {
+            background-color: #2a3f44;
+        }
+        
+        .query-button.secondary {
+            background-color: #f0f0f5;
+            color: #3A4759;
+        }
+        
+        .query-button.secondary:hover {
+            background-color: #e0e0ea;
+        }
+        
+        .query-results {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        
+        .query-result-item {
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .query-result-item:hover {
+            background-color: #f9f9fa;
+        }
+        
+        .query-result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .query-result-title {
+            font-weight: 600;
+            color: #3A4759;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        
+        .query-result-details {
+            font-size: 12px;
+            color: #5D5A4F;
+        }
+        
+        /* 高亮样式 */
+        .highlight-layer {
+            z-index: 9;
+        }
+        
+        .highlight-style {
+            stroke: #FF5722;
+            stroke-width: 3;
+            fill: rgba(255, 87, 34, 0.1);
+        }
+        
+        /* 框选样式 */
+        .selection-box {
+            border: 2px dashed #2196F3;
+            background-color: rgba(33, 150, 243, 0.1);
+            position: absolute;
+            z-index: 100;
+            pointer-events: none;
+        }
+        
+        /* 图查属性模式切换按钮 */
+        .feature-query-mode {
+            display: flex;
+            margin-top: 10px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .feature-query-mode-btn {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            background-color: #f0f0f5;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        
+        .feature-query-mode-btn.active {
+            background-color: #3D5A5F;
+            color: white;
+        }
+        
+        .feature-query-mode-btn:hover:not(.active) {
+            background-color: #e0e0ea;
+        }
