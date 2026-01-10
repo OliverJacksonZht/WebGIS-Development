@@ -35,6 +35,20 @@
       return await r.json();
     }
 
+    async deleteAsset(assetId, opts) {
+      opts = opts || {};
+      const qs = new URLSearchParams();
+      if (typeof opts.unpublish === 'boolean') qs.set('unpublish', String(opts.unpublish));
+      if (typeof opts.delete_files === 'boolean') qs.set('delete_files', String(opts.delete_files));
+      if (opts.purge) qs.set('purge', String(opts.purge));
+      const suffix = qs.toString() ? `?${qs.toString()}` : '';
+      const r = await fetch(joinUrl(this.baseUrl, `/api/assets/${assetId}${suffix}`), {
+        method: 'DELETE',
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return await r.json();
+    }
+
     async createCalcJob(payload) {
       const r = await fetch(joinUrl(this.baseUrl, '/api/raster/calc'), {
         method: 'POST',
