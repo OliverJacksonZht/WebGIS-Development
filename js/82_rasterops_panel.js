@@ -37,30 +37,36 @@
     const ws = window.RASTEROPS_WORKSPACE || 'webgis';
     return `${base}/${ws}/wms`;
   }
-
-  function addWmsLayerToMap(layerName, title) {
-    const ws = window.RASTEROPS_WORKSPACE || 'webgis';
-    const map = window.map || (window.STATE && window.STATE.map) || null;
-    const ol = window.ol;
-    if (!map || !ol) {
-      throw new Error('未找到 window.map 或 window.ol。请在你的地图初始化完成后设置 window.map = map;');
+  function addWmsLayerToMap({ ws, layerName, title }) {
+    const map = window.map;
+    if (!map) {
+      alert("window.map 未找到：请在地图初始化后设置 window.map = map;");
+      return null;
     }
 
+    // 统一使用全局 WMS 端点，避免 workspace 路径导致混乱
+    const wmsUrl = "http://10.8.49.5:8080/geoserver/wms";
+
     const layer = new ol.layer.Tile({
-      title: title || layerName,
+      title: title || `${ws}:${layerName}`,
       source: new ol.source.TileWMS({
-        url: geoserverWmsUrl(),
+        url: wmsUrl,
         params: {
-          'LAYERS': `${ws}:${layerName}`,
-          'TILED': true,
+          LAYERS: `${ws}:${layerName}`,
+          TILED: true,
+          FORMAT: "image/png",
+          TRANSPARENT: true,
+          VERSION: "1.1.1",
         },
-        serverType: 'geoserver',
-        crossOrigin: 'anonymous',
+        serverType: "geoserver",
+        // crossOrigin: 'anonymous', // 纯显示不需要，先不要
       }),
     });
+
+    layer.setZIndex(9999);
     map.addLayer(layer);
     return layer;
-  }
+}
 
   async function pollJob(api, jobId, onUpdate, intervalMs) {
     intervalMs = intervalMs || 1000;
