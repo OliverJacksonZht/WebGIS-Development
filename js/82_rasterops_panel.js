@@ -19,6 +19,30 @@
     return node;
   }
 
+  // -------- RasterOps Layer Registry (frontend-only) --------
+  // 用于：
+  // 1) “加到地图”之后能在同一条资产行上显示“移除/显隐”
+  // 2) 删除资产时顺便从 map 移除对应图层，避免残留
+  function _layerReg() {
+    if (!window.__rasterops_layer_by_asset) window.__rasterops_layer_by_asset = {};
+    return window.__rasterops_layer_by_asset;
+  }
+
+  function getLayerByAsset(assetId) {
+    const reg = _layerReg();
+    return reg[assetId] || null;
+  }
+
+  function setLayerByAsset(assetId, layer) {
+    const reg = _layerReg();
+    reg[assetId] = layer;
+  }
+
+  function removeLayerByAsset(assetId) {
+    const reg = _layerReg();
+    delete reg[assetId];
+  }
+
   function fmtMeta(meta) {
     if (!meta) return '';
     const p = [];
@@ -106,7 +130,7 @@
   // 兼容两种调用方式：
   // 1) addWmsLayerToMap({ ws, layerName, title })
   // 2) addWmsLayerToMap("ws:layer" 或 "layer", title)
-  function addWmsLayerToMap(layerRef, title) {
+  function addWmsLayerToMap(layerRef, title, assetId) {
     const map = window.map;
     if (!map) {
       alert('window.map 未找到：请在地图初始化后设置 window.map = map;');
@@ -148,7 +172,33 @@
     });
 
     layer.setZIndex(9999);
-    map.addLayer(layer);
+
+    // 尽量把业务图层放进一个 overlays group，便于你现有“图层管理”一并管理。
+    // 若你的项目已有 overlay 组（例如 window.overlayLayerGroup），可以改成复用它。
+    let overlayGroup = window.webgisOverlayGroup;
+    if (!overlayGroup && typeof ol !== 'undefined' && ol.layer && ol.layer.Group) {
+      overlayGroup = new ol.layer.Group({ title: '业务图层(Overlays)', layers: [] });
+      window.webgisOverlayGroup = overlayGroup;
+      map.addLayer(overlayGroup);
+    }
+
+    if (overlayGroup && overlayGroup.getLayers) {
+      overlayGroup.getLayers().push(layer);
+    } else {
+      map.addLayer(layer);
+    }
+
+    // 如果你的项目里有“图层管理/图层目录”的刷新函数，尽量调用一次
+    // （你可以自己在项目中定义 window.refreshLayerManager = function() {...}）
+    try {
+      if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager();
+    } catch (e) {}
+
+    // 记录 assetId -> layer 引用，方便后续移除/删除
+    if (assetId) {
+      layer.set('rasterops_asset_id', assetId);
+      setLayerByAsset(assetId, layer);
+    }
 
     // 用户体验：第一次添加时自动缩放到数据范围
     fitToWmsLayer(ws, layerName).catch(() => {});
@@ -263,6 +313,8 @@
           const assets = await api.listAssets();
           status.textContent = `共 ${assets.length} 个资产（仅 GeoTIFF / Shapefile(zip)）`;
           assets.forEach((a) => {
+            const loadedLayer = getLayerByAsset(a.id);
+            const isLoaded = !!loadedLayer;
             const row = el('div', {
               style:
                 'border:1px solid #eee;border-radius:6px;padding:8px;margin-bottom:8px;'
@@ -294,12 +346,71 @@
                   }
                   try {
                     const info = parseQualifiedLayer(a.geoserver_layer, window.RASTEROPS_WORKSPACE);
-                    addWmsLayerToMap({ ws: info.ws, layerName: info.layerName, title: a.filename });
+                    // 已经加载过的，避免重复加层
+                    if (isLoaded) {
+                      loadedLayer.setVisible(true);
+                      status.textContent = `该图层已在地图中：${info.qualified}`;
+                      fitToWmsLayer(info.ws, info.layerName).catch(() => {});
+                      return;
+                    }
+                    addWmsLayerToMap({ ws: info.ws, layerName: info.layerName, title: a.filename }, null, a.id);
                     status.textContent = `已添加 WMS：${info.qualified}`;
                   } catch (e) {
                     status.textContent = `添加 WMS 失败：${e.message || e}`;
                   }
-                } }, ['加到地图']),
+                  // 重新渲染，显示“移除/显隐”等按钮
+                  load();
+                } }, [isLoaded ? '已加载' : '加到地图']),
+                ...(isLoaded ? [
+                  el('button', { style: 'padding:4px 8px;cursor:pointer;', onclick: () => {
+                    try {
+                      const map = window.map;
+                      if (map && loadedLayer) map.removeLayer(loadedLayer);
+                      removeLayerByAsset(a.id);
+                      status.textContent = '已从地图移除该图层';
+                      load();
+                    } catch (e) {
+                      status.textContent = `移除失败：${e.message || e}`;
+                    }
+                  } }, ['移除']),
+                  el('button', { style: 'padding:4px 8px;cursor:pointer;', onclick: () => {
+                    try {
+                      loadedLayer.setVisible(!loadedLayer.getVisible());
+                      status.textContent = loadedLayer.getVisible() ? '已显示' : '已隐藏';
+                      load();
+                    } catch (e) {
+                      status.textContent = `切换显隐失败：${e.message || e}`;
+                    }
+                  } }, [loadedLayer && loadedLayer.getVisible && loadedLayer.getVisible() ? '隐藏' : '显示']),
+                ] : []),
+                el('button', { style: 'padding:4px 8px;cursor:pointer;color:#b00020;border:1px solid #b00020;background:#fff;', onclick: async () => {
+                  const willUnpublish = !!a.geoserver_store;
+                  const msg = willUnpublish
+                    ? '确认删除该资产？\n- 将删除 rasterops 本地文件\n- 将从 GeoServer 删除已发布的 store/layer\n\n此操作不可恢复。'
+                    : '确认删除该资产？\n- 将删除 rasterops 本地文件\n\n此操作不可恢复。';
+                  if (!confirm(msg)) return;
+
+                  try {
+                    status.textContent = `删除中: ${a.filename} ...`;
+                    // 先从地图移除（即便后端失败也不影响前端状态）
+                    const map = window.map;
+                    const lyr = getLayerByAsset(a.id);
+                    if (map && lyr) {
+                      map.removeLayer(lyr);
+                      removeLayerByAsset(a.id);
+                    }
+
+                    await api.deleteAsset(a.id, {
+                      unpublish: willUnpublish,
+                      delete_files: true,
+                      purge: 'all',
+                    });
+                    status.textContent = '已删除';
+                    await load();
+                  } catch (e) {
+                    status.textContent = `删除失败：${e.message || e}`;
+                  }
+                } }, ['删除']),
               ]),
             ]);
 
