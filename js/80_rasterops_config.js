@@ -7,7 +7,7 @@
 
   // GeoServer 基址与 workspace
   window.RASTEROPS_GEOSERVER_BASE = window.RASTEROPS_GEOSERVER_BASE || "http://10.8.49.5:8080/geoserver";
-  window.RASTEROPS_WORKSPACE = window.RASTEROPS_WORKSPACE || "webgis";
+  window.RASTEROPS_WORKSPACE = window.RASTEROPS_WORKSPACE || "wrok1";
 
   // 你的 OpenLayers map 对象引用：若不是 window.map，你可以在现有初始化代码里加一句：
   // window.map = map;
