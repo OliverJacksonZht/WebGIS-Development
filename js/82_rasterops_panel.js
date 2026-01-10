@@ -32,41 +32,129 @@
     return id ? id.slice(0, 8) : '';
   }
 
-  function geoserverWmsUrl() {
-    const base = (window.RASTEROPS_GEOSERVER_BASE || '').replace(/\/$/, '');
-    const ws = window.RASTEROPS_WORKSPACE || 'webgis';
-    return `${base}/${ws}/wms`;
+  function geoserverBase() {
+    return (window.RASTEROPS_GEOSERVER_BASE || '').replace(/\/$/, '');
   }
-  function addWmsLayerToMap({ ws, layerName, title }) {
+
+  function geoserverWmsUrl() {
+    const base = geoserverBase();
+    // 统一使用全局 WMS 端点（/geoserver/wms），避免 workspace 路径导致混乱
+    return base ? `${base}/wms` : 'http://10.8.49.5:8080/geoserver/wms';
+  }
+
+  function geoserverWmsCapabilitiesUrl() {
+    return `${geoserverWmsUrl()}?service=WMS&request=GetCapabilities&version=1.1.1`;
+  }
+
+  function parseQualifiedLayer(qualifiedOrName, fallbackWs) {
+    const ws0 = fallbackWs || window.RASTEROPS_WORKSPACE || 'work1';
+    if (!qualifiedOrName) return { ws: ws0, layerName: '', qualified: '' };
+    const s = String(qualifiedOrName).trim();
+    if (s.includes(':')) {
+      const parts = s.split(':');
+      const ws = parts[0] || ws0;
+      const layerName = parts.slice(1).join(':');
+      return { ws, layerName, qualified: `${ws}:${layerName}` };
+    }
+    return { ws: ws0, layerName: s, qualified: `${ws0}:${s}` };
+  }
+
+  const _fitOnce = new Set();
+
+  async function fitToWmsLayer(ws, layerName) {
+    const map = window.map;
+    if (!map || !map.getView) return;
+
+    const key = `${ws}:${layerName}`;
+    if (_fitOnce.has(key)) return;
+    _fitOnce.add(key);
+
+    const capUrl = geoserverWmsCapabilitiesUrl();
+    const xml = await (await fetch(capUrl)).text();
+    const doc = new DOMParser().parseFromString(xml, 'text/xml');
+
+    // 找到匹配 Layer
+    const layers = Array.from(doc.querySelectorAll('Layer'));
+    const L = layers.find((x) => x.querySelector('Name')?.textContent?.trim() === key);
+    if (!L) return;
+
+    const bbs = Array.from(L.querySelectorAll('BoundingBox'));
+    const bb3857 = bbs.find((b) => (b.getAttribute('SRS') || b.getAttribute('CRS')) === 'EPSG:3857');
+    const bb4326 = bbs.find((b) => (b.getAttribute('SRS') || b.getAttribute('CRS')) === 'EPSG:4326');
+
+    function parseBb(bb) {
+      return ['minx', 'miny', 'maxx', 'maxy'].map((k) => parseFloat(bb.getAttribute(k)));
+    }
+
+    if (bb3857) {
+      const extent = parseBb(bb3857);
+      if (extent.every((v) => Number.isFinite(v))) {
+        map.getView().fit(extent, { padding: [40, 40, 40, 40], duration: 400 });
+      }
+      return;
+    }
+
+    if (bb4326) {
+      const extent4326 = parseBb(bb4326);
+      if (extent4326.every((v) => Number.isFinite(v))) {
+        const extent3857 = ol.proj.transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
+        map.getView().fit(extent3857, { padding: [40, 40, 40, 40], duration: 400 });
+      }
+    }
+  }
+
+  // 兼容两种调用方式：
+  // 1) addWmsLayerToMap({ ws, layerName, title })
+  // 2) addWmsLayerToMap("ws:layer" 或 "layer", title)
+  function addWmsLayerToMap(layerRef, title) {
     const map = window.map;
     if (!map) {
-      alert("window.map 未找到：请在地图初始化后设置 window.map = map;");
+      alert('window.map 未找到：请在地图初始化后设置 window.map = map;');
       return null;
     }
 
-    // 统一使用全局 WMS 端点，避免 workspace 路径导致混乱
-    const wmsUrl = "http://10.8.49.5:8080/geoserver/wms";
+    let ws, layerName, qualified;
+    if (typeof layerRef === 'string') {
+      ({ ws, layerName, qualified } = parseQualifiedLayer(layerRef, window.RASTEROPS_WORKSPACE));
+    } else if (layerRef && typeof layerRef === 'object') {
+      const ws0 = layerRef.ws || layerRef.workspace || window.RASTEROPS_WORKSPACE;
+      const name0 = layerRef.layerName || layerRef.layer || layerRef.name;
+      ({ ws, layerName, qualified } = parseQualifiedLayer(name0, ws0));
+      title = layerRef.title || title;
+    } else {
+      throw new Error('无效的 layer 参数');
+    }
+
+    if (!ws || !layerName) {
+      throw new Error('图层名不完整（需要 ws 与 layerName）');
+    }
+
+    const wmsUrl = geoserverWmsUrl();
 
     const layer = new ol.layer.Tile({
-      title: title || `${ws}:${layerName}`,
+      title: title || qualified,
       source: new ol.source.TileWMS({
         url: wmsUrl,
         params: {
-          LAYERS: `${ws}:${layerName}`,
+          LAYERS: qualified,
           TILED: true,
-          FORMAT: "image/png",
+          FORMAT: 'image/png',
           TRANSPARENT: true,
-          VERSION: "1.1.1",
+          VERSION: '1.1.1',
         },
-        serverType: "geoserver",
-        // crossOrigin: 'anonymous', // 纯显示不需要，先不要
+        serverType: 'geoserver',
+        // crossOrigin: 'anonymous', // 纯显示不需要；若未来要 canvas 导出，再配 CORS
       }),
     });
 
     layer.setZIndex(9999);
     map.addLayer(layer);
+
+    // 用户体验：第一次添加时自动缩放到数据范围
+    fitToWmsLayer(ws, layerName).catch(() => {});
+
     return layer;
-}
+  }
 
   async function pollJob(api, jobId, onUpdate, intervalMs) {
     intervalMs = intervalMs || 1000;
@@ -108,7 +196,7 @@
       style: 'padding:10px;border-bottom:1px solid #ddd;font-weight:bold;display:flex;justify-content:space-between;align-items:center;'
     }, [
       el('div', null, [`rasterops @ ${window.RASTEROPS_BASE_URL}`]),
-      el('a', { href: geoserverWmsUrl(), target: '_blank', style: 'font-size:12px;' }, ['WMS'])
+      el('a', { href: geoserverWmsCapabilitiesUrl(), target: '_blank', style: 'font-size:12px;' }, ['WMS'])
     ]);
 
     const tabBar = el('div', { style: 'display:flex;border-bottom:1px solid #ddd;' });
@@ -205,8 +293,9 @@
                     return;
                   }
                   try {
-                    addWmsLayerToMap(a.geoserver_layer, a.filename);
-                    status.textContent = `已添加 WMS：${window.RASTEROPS_WORKSPACE}:${a.geoserver_layer}`;
+                    const info = parseQualifiedLayer(a.geoserver_layer, window.RASTEROPS_WORKSPACE);
+                    addWmsLayerToMap({ ws: info.ws, layerName: info.layerName, title: a.filename });
+                    status.textContent = `已添加 WMS：${info.qualified}`;
                   } catch (e) {
                     status.textContent = `添加 WMS 失败：${e.message || e}`;
                   }
@@ -215,7 +304,7 @@
             ]);
 
             const pubInfo = a.geoserver_layer
-              ? `Published: ${window.RASTEROPS_WORKSPACE}:${a.geoserver_layer} (store=${a.geoserver_store})`
+              ? `Published: ${parseQualifiedLayer(a.geoserver_layer, window.RASTEROPS_WORKSPACE).qualified} (store=${a.geoserver_store})`
               : 'Not published';
             row.appendChild(line1);
             row.appendChild(el('div', { style: 'font-size:12px;color:#666;' }, [pubInfo]));
