@@ -19,30 +19,6 @@
     return node;
   }
 
-  // -------- RasterOps Layer Registry (frontend-only) --------
-  // 用于：
-  // 1) “加到地图”之后能在同一条资产行上显示“移除/显隐”
-  // 2) 删除资产时顺便从 map 移除对应图层，避免残留
-  function _layerReg() {
-    if (!window.__rasterops_layer_by_asset) window.__rasterops_layer_by_asset = {};
-    return window.__rasterops_layer_by_asset;
-  }
-
-  function getLayerByAsset(assetId) {
-    const reg = _layerReg();
-    return reg[assetId] || null;
-  }
-
-  function setLayerByAsset(assetId, layer) {
-    const reg = _layerReg();
-    reg[assetId] = layer;
-  }
-
-  function removeLayerByAsset(assetId) {
-    const reg = _layerReg();
-    delete reg[assetId];
-  }
-
   function fmtMeta(meta) {
     if (!meta) return '';
     const p = [];
@@ -56,104 +32,37 @@
     return id ? id.slice(0, 8) : '';
   }
 
-  function geoserverBase() {
-    return (window.RASTEROPS_GEOSERVER_BASE || '').replace(/\/$/, '');
-  }
-
   function geoserverWmsUrl() {
-    const base = geoserverBase();
-    // 统一使用全局 WMS 端点（/geoserver/wms），避免 workspace 路径导致混乱
-    return base ? `${base}/wms` : 'http://10.8.49.5:8080/geoserver/wms';
+    const base = (window.RASTEROPS_GEOSERVER_BASE || '').replace(/\/$/, '');
+    const ws = window.RASTEROPS_WORKSPACE || 'webgis';
+    return `${base}/${ws}/wms`;
   }
-
-  function geoserverWmsCapabilitiesUrl() {
-    return `${geoserverWmsUrl()}?service=WMS&request=GetCapabilities&version=1.1.1`;
-  }
-
-  function parseQualifiedLayer(qualifiedOrName, fallbackWs) {
-    const ws0 = fallbackWs || window.RASTEROPS_WORKSPACE || 'work1';
-    if (!qualifiedOrName) return { ws: ws0, layerName: '', qualified: '' };
-    const s = String(qualifiedOrName).trim();
-    if (s.includes(':')) {
-      const parts = s.split(':');
-      const ws = parts[0] || ws0;
-      const layerName = parts.slice(1).join(':');
-      return { ws, layerName, qualified: `${ws}:${layerName}` };
-    }
-    return { ws: ws0, layerName: s, qualified: `${ws0}:${s}` };
-  }
-
-  const _fitOnce = new Set();
-
-  async function fitToWmsLayer(ws, layerName) {
-    const map = window.map;
-    if (!map || !map.getView) return;
-
-    const key = `${ws}:${layerName}`;
-    if (_fitOnce.has(key)) return;
-    _fitOnce.add(key);
-
-    const capUrl = geoserverWmsCapabilitiesUrl();
-    const xml = await (await fetch(capUrl)).text();
-    const doc = new DOMParser().parseFromString(xml, 'text/xml');
-
-    // 找到匹配 Layer
-    const layers = Array.from(doc.querySelectorAll('Layer'));
-    const L = layers.find((x) => x.querySelector('Name')?.textContent?.trim() === key);
-    if (!L) return;
-
-    const bbs = Array.from(L.querySelectorAll('BoundingBox'));
-    const bb3857 = bbs.find((b) => (b.getAttribute('SRS') || b.getAttribute('CRS')) === 'EPSG:3857');
-    const bb4326 = bbs.find((b) => (b.getAttribute('SRS') || b.getAttribute('CRS')) === 'EPSG:4326');
-
-    function parseBb(bb) {
-      return ['minx', 'miny', 'maxx', 'maxy'].map((k) => parseFloat(bb.getAttribute(k)));
-    }
-
-    if (bb3857) {
-      const extent = parseBb(bb3857);
-      if (extent.every((v) => Number.isFinite(v))) {
-        map.getView().fit(extent, { padding: [40, 40, 40, 40], duration: 400 });
-      }
-      return;
-    }
-
-    if (bb4326) {
-      const extent4326 = parseBb(bb4326);
-      if (extent4326.every((v) => Number.isFinite(v))) {
-        const extent3857 = ol.proj.transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
-        map.getView().fit(extent3857, { padding: [40, 40, 40, 40], duration: 400 });
-      }
-    }
-  }
-
-  // 兼容两种调用方式：
-  // 1) addWmsLayerToMap({ ws, layerName, title })
-  // 2) addWmsLayerToMap("ws:layer" 或 "layer", title)
-  function addWmsLayerToMap(layerRef, title, assetId) {
+  function addWmsLayerToMap(layerInfo, qualifiedOverride, assetId) {
     const map = window.map;
     if (!map) {
-      alert('window.map 未找到：请在地图初始化后设置 window.map = map;');
+      alert("window.map 未找到：请在地图初始化后设置 window.map = map;");
       return null;
     }
 
-    let ws, layerName, qualified;
-    if (typeof layerRef === 'string') {
-      ({ ws, layerName, qualified } = parseQualifiedLayer(layerRef, window.RASTEROPS_WORKSPACE));
-    } else if (layerRef && typeof layerRef === 'object') {
-      const ws0 = layerRef.ws || layerRef.workspace || window.RASTEROPS_WORKSPACE;
-      const name0 = layerRef.layerName || layerRef.layer || layerRef.name;
-      ({ ws, layerName, qualified } = parseQualifiedLayer(name0, ws0));
-      title = layerRef.title || title;
+    // 兼容两种调用方式：
+    // 1) addWmsLayerToMap({ws, layerName, title}, qualified?, assetId?)
+    // 2) addWmsLayerToMap("layerName", "title", assetId?)  —— ws 使用 window.RASTEROPS_WORKSPACE
+    let ws, layerName, title;
+    if (typeof layerInfo === 'string') {
+      ws = window.RASTEROPS_WORKSPACE || 'wrok1';
+      layerName = layerInfo.includes(':') ? layerInfo.split(':')[1] : layerInfo;
+      title = qualifiedOverride || layerName;
+      qualifiedOverride = layerInfo.includes(':') ? layerInfo : `${ws}:${layerName}`;
     } else {
-      throw new Error('无效的 layer 参数');
+      ws = layerInfo.ws || (window.RASTEROPS_WORKSPACE || 'wrok1');
+      layerName = layerInfo.layerName || layerInfo.name || '';
+      title = layerInfo.title || layerInfo.filename || layerInfo.layerTitle || layerInfo.layer || layerInfo.displayName || layerInfo.name || layerInfo.layerName;
     }
 
-    if (!ws || !layerName) {
-      throw new Error('图层名不完整（需要 ws 与 layerName）');
-    }
+    const qualified = qualifiedOverride || (layerName.includes(':') ? layerName : `${ws}:${layerName}`);
 
-    const wmsUrl = geoserverWmsUrl();
+    // 统一使用全局 WMS 端点，避免 workspace 路径导致混乱
+    const wmsUrl = (window.RASTEROPS_GEOSERVER_BASE || "http://10.8.49.5:8080/geoserver").replace(/\/$/, "") + "/wms";
 
     const layer = new ol.layer.Tile({
       title: title || qualified,
@@ -162,54 +71,43 @@
         params: {
           LAYERS: qualified,
           TILED: true,
-          FORMAT: 'image/png',
+          FORMAT: "image/png",
           TRANSPARENT: true,
-          VERSION: '1.1.1',
+          VERSION: "1.1.1",
         },
-        serverType: 'geoserver',
-        // crossOrigin: 'anonymous', // 纯显示不需要；若未来要 canvas 导出，再配 CORS
+        serverType: "geoserver",
       }),
     });
 
+    // 让图层在底图之上
     layer.setZIndex(9999);
 
-    // 尽量把业务图层放进一个 overlays group，便于你现有“图层管理”一并管理。
-    // 若你的项目已有 overlay 组（例如 window.overlayLayerGroup），可以改成复用它。
-    let overlayGroup = window.webgisOverlayGroup;
-    if (!overlayGroup && typeof ol !== 'undefined' && ol.layer && ol.layer.Group) {
-      overlayGroup = new ol.layer.Group({ title: '业务图层(Overlays)', layers: [] });
-      window.webgisOverlayGroup = overlayGroup;
-      map.addLayer(overlayGroup);
+    // 写入统一 metadata（供 08_overlay_layer_manager.js / 其它模块识别）
+    if (assetId) {
+      layer.set('rasterops_asset_id', assetId); // 兼容旧字段
+      layer.set('__assetId', assetId);
     }
+    layer.set('__qualifiedName', qualified);
+    layer.set('__source', 'rasterops');
 
-    if (overlayGroup && overlayGroup.getLayers) {
-      overlayGroup.getLayers().push(layer);
+    // 优先加入 overlayGroup（保证图层管理面板必现）
+    const og = window.webgisOverlayGroup;
+    if (og && og.getLayers) {
+      og.getLayers().push(layer);
     } else {
       map.addLayer(layer);
     }
 
-    // 如果你的项目里有“图层管理/图层目录”的刷新函数，尽量调用一次
-    // （你可以自己在项目中定义 window.refreshLayerManager = function() {...}）
+    // 尝试刷新图层管理
+    try { if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager(); } catch (e) {}
+
+    // 如果有 assetId，记录到前端 registry（便于“移除/删除”按钮找到对应 layer）
     try {
-      if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager();
+      if (assetId && typeof setLayerByAsset === 'function') setLayerByAsset(assetId, layer);
     } catch (e) {}
 
-    // 记录 assetId -> layer 引用，方便后续移除/删除（并写入统一 metadata，供图层管理面板识别）
-    if (assetId) {
-      // 兼容旧字段
-      layer.set('rasterops_asset_id', assetId);
-
-      // 新字段（推荐）：给 08_overlay_layer_manager.js 使用
-      layer.set('__assetId', assetId);
-      layer.set('__qualifiedName', qualified);
-      layer.set('__source', 'rasterops');
-
-      setLayerByAsset(assetId, layer);
-    }// 用户体验：第一次添加时自动缩放到数据范围
-    fitToWmsLayer(ws, layerName).catch(() => {});
-
     return layer;
-  }
+}
 
   async function pollJob(api, jobId, onUpdate, intervalMs) {
     intervalMs = intervalMs || 1000;
@@ -251,7 +149,7 @@
       style: 'padding:10px;border-bottom:1px solid #ddd;font-weight:bold;display:flex;justify-content:space-between;align-items:center;'
     }, [
       el('div', null, [`rasterops @ ${window.RASTEROPS_BASE_URL}`]),
-      el('a', { href: geoserverWmsCapabilitiesUrl(), target: '_blank', style: 'font-size:12px;' }, ['WMS'])
+      el('a', { href: geoserverWmsUrl(), target: '_blank', style: 'font-size:12px;' }, ['WMS'])
     ]);
 
     const tabBar = el('div', { style: 'display:flex;border-bottom:1px solid #ddd;' });
@@ -318,8 +216,6 @@
           const assets = await api.listAssets();
           status.textContent = `共 ${assets.length} 个资产（仅 GeoTIFF / Shapefile(zip)）`;
           assets.forEach((a) => {
-            const loadedLayer = getLayerByAsset(a.id);
-            const isLoaded = !!loadedLayer;
             const row = el('div', {
               style:
                 'border:1px solid #eee;border-radius:6px;padding:8px;margin-bottom:8px;'
@@ -350,92 +246,17 @@
                     return;
                   }
                   try {
-                    const info = parseQualifiedLayer(a.geoserver_layer, window.RASTEROPS_WORKSPACE);
-                    // 已经加载过的，避免重复加层
-                    if (isLoaded) {
-                      loadedLayer.setVisible(true);
-                      status.textContent = `该图层已在地图中：${info.qualified}`;
-                      try { if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager(); } catch (e) {}
-                      fitToWmsLayer(info.ws, info.layerName).catch(() => {});
-                      return;
-                    }
-                    addWmsLayerToMap({ ws: info.ws, layerName: info.layerName, title: a.filename }, null, a.id);
-                    status.textContent = `已添加 WMS：${info.qualified}`;
+                    addWmsLayerToMap(a.geoserver_layer, a.filename);
+                    status.textContent = `已添加 WMS：${window.RASTEROPS_WORKSPACE}:${a.geoserver_layer}`;
                   } catch (e) {
                     status.textContent = `添加 WMS 失败：${e.message || e}`;
                   }
-                  // 重新渲染，显示“移除/显隐”等按钮
-                  load();
-                } }, [isLoaded ? '已加载' : '加到地图']),
-                ...(isLoaded ? [
-                  el('button', { style: 'padding:4px 8px;cursor:pointer;', onclick: () => {
-                    try {
-                      const map = window.map;
-                      const og = window.webgisOverlayGroup;
-                      if (loadedLayer) {
-                        // 优先从 overlayGroup 移除（WMS 栅格通常是 group 子图层）
-                        if (og && og.getLayers && og.getLayers().getArray().includes(loadedLayer)) {
-                          og.getLayers().remove(loadedLayer);
-                        } else if (map && map.removeLayer) {
-                          map.removeLayer(loadedLayer);
-                        }
-                      }
-                      removeLayerByAsset(a.id);
-                      status.textContent = '已从地图移除该图层';
-                      try { if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager(); } catch (e) {}
-                      load();
-                    } catch (e) {
-                      status.textContent = `移除失败：${e.message || e}`;
-                    }
-                  } }, ['移除']),
-                  el('button', { style: 'padding:4px 8px;cursor:pointer;', onclick: () => {
-                    try {
-                      loadedLayer.setVisible(!loadedLayer.getVisible());
-                      status.textContent = loadedLayer.getVisible() ? '已显示' : '已隐藏';
-                      load();
-                    } catch (e) {
-                      status.textContent = `切换显隐失败：${e.message || e}`;
-                    }
-                  } }, [loadedLayer && loadedLayer.getVisible && loadedLayer.getVisible() ? '隐藏' : '显示']),
-                ] : []),
-                el('button', { style: 'padding:4px 8px;cursor:pointer;color:#b00020;border:1px solid #b00020;background:#fff;', onclick: async () => {
-                  const willUnpublish = !!a.geoserver_store;
-                  const msg = willUnpublish
-                    ? '确认删除该资产？\n- 将删除 rasterops 本地文件\n- 将从 GeoServer 删除已发布的 store/layer\n\n此操作不可恢复。'
-                    : '确认删除该资产？\n- 将删除 rasterops 本地文件\n\n此操作不可恢复。';
-                  if (!confirm(msg)) return;
-
-                  try {
-                    status.textContent = `删除中: ${a.filename} ...`;
-                    // 先从地图移除（即便后端失败也不影响前端状态）
-                    const map = window.map;
-                    const og = window.webgisOverlayGroup;
-                    const lyr = getLayerByAsset(a.id);
-                    if (lyr) {
-                      if (og && og.getLayers && og.getLayers().getArray().includes(lyr)) {
-                        og.getLayers().remove(lyr);
-                      } else if (map && map.removeLayer) {
-                        map.removeLayer(lyr);
-                      }
-                      removeLayerByAsset(a.id);
-                      try { if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager(); } catch (e) {}
-                    }
-await api.deleteAsset(a.id, {
-                      unpublish: willUnpublish,
-                      delete_files: true,
-                      purge: 'all',
-                    });
-                    status.textContent = '已删除';
-                    await load();
-                  } catch (e) {
-                    status.textContent = `删除失败：${e.message || e}`;
-                  }
-                } }, ['删除']),
+                } }, ['加到地图']),
               ]),
             ]);
 
             const pubInfo = a.geoserver_layer
-              ? `Published: ${parseQualifiedLayer(a.geoserver_layer, window.RASTEROPS_WORKSPACE).qualified} (store=${a.geoserver_store})`
+              ? `Published: ${window.RASTEROPS_WORKSPACE}:${a.geoserver_layer} (store=${a.geoserver_store})`
               : 'Not published';
             row.appendChild(line1);
             row.appendChild(el('div', { style: 'font-size:12px;color:#666;' }, [pubInfo]));
