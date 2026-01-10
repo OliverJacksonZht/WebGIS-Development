@@ -194,13 +194,18 @@
       if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager();
     } catch (e) {}
 
-    // 记录 assetId -> layer 引用，方便后续移除/删除
+    // 记录 assetId -> layer 引用，方便后续移除/删除（并写入统一 metadata，供图层管理面板识别）
     if (assetId) {
+      // 兼容旧字段
       layer.set('rasterops_asset_id', assetId);
-      setLayerByAsset(assetId, layer);
-    }
 
-    // 用户体验：第一次添加时自动缩放到数据范围
+      // 新字段（推荐）：给 08_overlay_layer_manager.js 使用
+      layer.set('__assetId', assetId);
+      layer.set('__qualifiedName', qualified);
+      layer.set('__source', 'rasterops');
+
+      setLayerByAsset(assetId, layer);
+    }// 用户体验：第一次添加时自动缩放到数据范围
     fitToWmsLayer(ws, layerName).catch(() => {});
 
     return layer;
@@ -350,6 +355,7 @@
                     if (isLoaded) {
                       loadedLayer.setVisible(true);
                       status.textContent = `该图层已在地图中：${info.qualified}`;
+                      try { if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager(); } catch (e) {}
                       fitToWmsLayer(info.ws, info.layerName).catch(() => {});
                       return;
                     }
@@ -365,9 +371,18 @@
                   el('button', { style: 'padding:4px 8px;cursor:pointer;', onclick: () => {
                     try {
                       const map = window.map;
-                      if (map && loadedLayer) map.removeLayer(loadedLayer);
+                      const og = window.webgisOverlayGroup;
+                      if (loadedLayer) {
+                        // 优先从 overlayGroup 移除（WMS 栅格通常是 group 子图层）
+                        if (og && og.getLayers && og.getLayers().getArray().includes(loadedLayer)) {
+                          og.getLayers().remove(loadedLayer);
+                        } else if (map && map.removeLayer) {
+                          map.removeLayer(loadedLayer);
+                        }
+                      }
                       removeLayerByAsset(a.id);
                       status.textContent = '已从地图移除该图层';
+                      try { if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager(); } catch (e) {}
                       load();
                     } catch (e) {
                       status.textContent = `移除失败：${e.message || e}`;
@@ -394,13 +409,18 @@
                     status.textContent = `删除中: ${a.filename} ...`;
                     // 先从地图移除（即便后端失败也不影响前端状态）
                     const map = window.map;
+                    const og = window.webgisOverlayGroup;
                     const lyr = getLayerByAsset(a.id);
-                    if (map && lyr) {
-                      map.removeLayer(lyr);
+                    if (lyr) {
+                      if (og && og.getLayers && og.getLayers().getArray().includes(lyr)) {
+                        og.getLayers().remove(lyr);
+                      } else if (map && map.removeLayer) {
+                        map.removeLayer(lyr);
+                      }
                       removeLayerByAsset(a.id);
+                      try { if (typeof window.refreshLayerManager === 'function') window.refreshLayerManager(); } catch (e) {}
                     }
-
-                    await api.deleteAsset(a.id, {
+await api.deleteAsset(a.id, {
                       unpublish: willUnpublish,
                       delete_files: true,
                       purge: 'all',
