@@ -49,7 +49,7 @@
                 zoom: 4
             })
         });
-
+        window.map = map;
         // 手动添加鹰眼图控件
         const overviewMapControl = new ol.control.OverviewMap({
             className: 'ol-overviewmap',
