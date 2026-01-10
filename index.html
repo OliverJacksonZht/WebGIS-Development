@@ -142,6 +142,8 @@
             提示：点击图层名称可缩放至数据范围 | 绘制功能：右侧工具栏📍📐🔶⭕，支持点/线/面/圆绘制
         </div>
         <div id="layer-list-container"></div>
+        <div id="overlayLayersContainer"></div>
+        <div id="emptyLayerTip" style="display:none;">暂无业务栅格图层</div>
         <!-- 图查属性模式选择 -->
         <div style="margin-top: 20px;">
             <div style="font-size: 12px; color: #5D5A4F; margin-bottom: 8px; font-weight: 600;">图查属性模式</div>
@@ -156,6 +158,7 @@
 
     <script src="js/00_config_state.js"></script>
     <script src="js/01_map_init.js"></script>
+    <script src="./js/08_overlay_layer_manager.js"></script>
     <script src="js/02_wfs_layer_ui.js"></script>
     <script src="js/03_panels_basemap_delegation.js"></script>
     <script src="js/05_measure_draw.js"></script>
@@ -165,6 +168,7 @@
     <script src="js/80_rasterops_config.js"></script>
     <script src="js/81_rasterops_api.js"></script>
     <script src="js/82_rasterops_panel.js"></script>
+
 
 </body>
 </html>
