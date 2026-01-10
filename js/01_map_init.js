@@ -50,6 +50,17 @@
             })
         });
         window.map = map;
+                // === 业务栅格图层组（Overlays）===
+        // 确保全局唯一，避免重复 addLayer
+        if (!window.webgisOverlayGroup) {
+        window.webgisOverlayGroup = new ol.layer.Group({
+            title: '业务图层(Overlays)',
+            layers: []
+        });
+        window.webgisOverlayGroup.setZIndex?.(1000);
+        map.addLayer(window.webgisOverlayGroup);
+        }
+
         // 手动添加鹰眼图控件
         const overviewMapControl = new ol.control.OverviewMap({
             className: 'ol-overviewmap',
