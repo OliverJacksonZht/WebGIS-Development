@@ -132,6 +132,8 @@
         <button class="tool-btn" id="reset-map" title="重置地图">🔄</button>
         <!-- 最短路径分析功能按钮 -->
         <button class="tool-btn" id="path-analysis-toggle" title="路径规划 | 点击地图设置起点和终点">🚀</button>
+        <!-- 缓冲区分析功能按钮 -->
+        <button class="tool-btn" id="buffer-analysis-toggle" title="缓冲区分析 | 对点/线/面要素进行缓冲分析">🛡️</button>
     </div>
 
     <!-- 图层控制面板 (已移动到右上角，默认隐藏) -->
@@ -187,8 +189,48 @@
             <button class="query-button primary" id="execute-path-calc">计算路径</button>
             <button class="query-button secondary" id="clear-path-analysis">重新开始</button>
         </div>
-    </div>    
+    </div>
 
+
+        <!-- 放在 body 标签内部，与其他 panel 并列 -->
+    <div class="attribute-query-panel" id="buffer-analysis-panel" >
+        <div class="feature-info-header">
+            <span>缓冲区分析</span>
+            <button class="close-panel" id="close-buffer-panel" title="关闭">&times;</button>
+        </div>
+        
+        <div class="query-section">
+            <div class="query-section-title">分析设置</div>
+            
+            <!-- 图层选择 -->
+            <div class="query-control">
+                <label for="buffer-layer-select">选择图层</label>
+                <select id="buffer-layer-select">
+                    <option value="">正在加载图层...</option>
+                </select>
+            </div>
+
+            <!-- 距离设置 -->
+            <div class="query-control">
+                <label for="buffer-distance">缓冲半径 (米)</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="number" id="buffer-distance" min="1" value="500" placeholder="例如: 500">
+                    <span style="font-size: 12px; color: #666;">米</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="query-buttons">
+            <button class="query-button primary" id="execute-buffer-analysis">开始分析</button>
+            <button class="query-button secondary" id="clear-buffer-analysis">清除结果</button>
+        </div>
+
+        <div class="query-section" style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+            <div style="font-size: 13px; color: #555;">
+                状态: <span id="buffer-status-text">就绪</span>
+            </div>
+        </div>
+    </div>
 
 
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
@@ -206,7 +248,8 @@
     <script src="js/80_rasterops_config.js"></script>
     <script src="js/81_rasterops_api.js"></script>
     <script src="js/82_rasterops_panel.js"></script>
+    <script src="js/10_buffer_analysis.js"></script>
     <script src="js/11_path_analysis.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf/turf.min.js"></script>
 </body>
 </html>

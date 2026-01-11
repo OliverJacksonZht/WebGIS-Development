@@ -291,3 +291,23 @@
         initFeatureHighlightLayer(); // 初始化图查属性高亮图层
         initBatchHighlightLayer(); // 初始化框选查询高亮图层
         initQueryHighlightLayer(); // 初始化属性查图高亮图层
+        
+        // ========== 初始化缓冲区结果图层 ==========
+        function initBufferLayer() {
+            state.bufferSource = new ol.source.Vector();
+            state.bufferLayer = new ol.layer.Vector({
+                source: state.bufferSource,
+                style: new ol.style.Style({
+                    fill: new ol.style.Fill({
+                        color: 'rgba(0, 153, 255, 0.5)'
+                    }),
+                    stroke: new ol.style.Stroke({
+                        color: 'rgba(0, 102, 204, 0.8)',
+                        width: 2
+                    })
+                }),
+                zIndex: 1500
+            });
+            map.addLayer(state.bufferLayer);
+        }
+        initBufferLayer();

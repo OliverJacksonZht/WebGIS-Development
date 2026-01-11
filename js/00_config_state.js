@@ -1,5 +1,12 @@
 console.log("系统启动...");
 
+// 确保全局状态对象存在
+window.state = window.state || {};
+
+// 初始化缓冲区分析相关状态
+state.bufferSource = null;
+state.bufferLayer = null;
+
         // --- 配置部分 ---
         const geoserverWfsUrl = 'http://10.8.49.5:8080/geoserver/wrok1/wfs';
         const tiandituKey = '189f632fbb6e9fc887396a0cd8b57bab'; 
@@ -19,7 +26,43 @@ console.log("系统启动...");
                 name: '深圳行政区划',
                 layerName: 'wrok1:深圳行政区划',
                 visible: true,
-                color: '#3E5F64', 
+                color: '#e34d7f', 
+                borderColor: '#ffffff',
+                opacity: 0.9
+            },
+                        {
+                id: 'custom_layer_3',
+                name: '深州市肯德基',
+                layerName: 'wrok1:深州市肯德基',
+                visible: true,
+                color: '#fc0000', 
+                borderColor: '#ffffff',
+                opacity: 0.9
+            },
+                        {
+                id: 'custom_layer_4',
+                name: '深州市金拱门',
+                layerName: 'wrok1:深州市金拱门',
+                visible: true,
+                color: '#f4f74a', 
+                borderColor: '#ffffff',
+                opacity: 0.9
+            },
+                        {
+                id: 'custom_layer_5',
+                name: '江津县道',
+                layerName: 'wrok1:江津县道',
+                visible: true,
+                color: '#42f745', 
+                borderColor: '#ffffff',
+                opacity: 0.9
+            },
+                        {
+                id: 'custom_layer_6',
+                name: '江津湖泊',
+                layerName: 'wrok1:江津湖泊',
+                visible: true,
+                color: '#6de3f5', 
                 borderColor: '#ffffff',
                 opacity: 0.9
             }
@@ -86,3 +129,11 @@ console.log("系统启动...");
         let pathSource, pathLayer;
         let currentPathType = 'start'; // 当前正在点选的类型
         let pathAnalysisPanel = document.getElementById('path-analysis-panel');
+        
+        // ========== 缓冲区分析相关变量 ==========
+        let bufferAnalysisPanel = document.getElementById('buffer-analysis-panel');
+        let bufferDistanceInput = document.getElementById('buffer-distance');
+        let bufferFeatureTypeSelect = document.getElementById('buffer-feature-type');
+        let executeBufferBtn = document.getElementById('execute-buffer-analysis');
+        let clearBufferBtn = document.getElementById('clear-buffer-analysis');
+        let bufferAnalysisToggleBtn = document.getElementById('buffer-analysis-toggle');

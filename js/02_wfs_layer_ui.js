@@ -36,10 +36,44 @@
             });
 
             const styleFunction = function(feature) {
-                return new ol.style.Style({
-                    stroke: new ol.style.Stroke({ color: config.borderColor, width: 1 }),
-                    fill: new ol.style.Fill({ color: hexToRgba(config.color, config.opacity) })
-                });
+                // 获取要素的几何类型
+                const type = feature.getGeometry().getType();
+                
+                // 基础样式配置
+                const fillColor = hexToRgba(config.color, config.opacity);
+                const borderColor = config.borderColor;
+                
+                // 1. 处理点 (Point / MultiPoint)
+                // 点需要 image 属性来定义形状（如圆形）
+                if (type === 'Point' || type === 'MultiPoint') {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 6, // 点的大小
+                            fill: new ol.style.Fill({ color: config.color }), // 使用主色填充点
+                            stroke: new ol.style.Stroke({ color: '#fff', width: 2 }) // 点的外圈
+                        })
+                    });
+                }
+                
+                // 2. 处理线 (LineString / MultiLineString)
+                // 线主要看 stroke，且通常需要比边界更粗一点，使用主色而不是边界色
+                else if (type === 'LineString' || type === 'MultiLineString') {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: config.color, // 线图层应该使用主色(color)而不是边界色(borderColor)
+                            width: 3 // 线宽设为3，更容易看清
+                        })
+                    });
+                }
+                
+                // 3. 处理面 (Polygon / MultiPolygon)
+                // 面使用原有的逻辑
+                else {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({ color: borderColor, width: 1 }),
+                        fill: new ol.style.Fill({ color: fillColor })
+                    });
+                }
             };
 
             const vectorLayer = new ol.layer.Vector({
