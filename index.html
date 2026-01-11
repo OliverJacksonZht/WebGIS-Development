@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGis二次开发平台</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <header class="page-header">
+        <span class="header-icon"></span>
+        <h1>第八组WebGIS二次开发作业</h1>
+    </header>
+
+    <div id="map"></div>
+
+    <!-- ========== 全局操作状态提示条 ========== -->
+    <div id="operation-tip"></div>
+    <div id="mouse-position">等待坐标...</div>
+    <div id="loading-indicator">正在加载矢量数据...</div>
+
+    <!-- 修改：左上角底图切换容器 -->
+    <div class="basemap-container">
+        <button class="basemap-btn-main" id="toggle-basemap" title="切换底图">🌍</button>
+        <div class="basemap-selector" id="basemap-selector">
+            <button class="basemap-option active" data-type="vec">矢量底图</button>
+            <button class="basemap-option" data-type="img">影像底图</button>
+            <button class="basemap-option" data-type="ter">地形底图</button>
+        </div>
+    </div>
+
+    <!-- 新增：图查属性弹窗 -->
+    <div class="feature-info-popup" id="feature-info-popup">
+        <div class="feature-info-header">
+            <span>要素属性信息</span>
+            <button class="close-panel" title="关闭">&times;</button>
+        </div>
+        <div class="feature-info-content" id="feature-info-content">
+            <div class="feature-info-empty">点击地图上的要素查看属性信息</div>
+        </div>
+    </div>
+
+    <!-- 新增：框选查询结果面板 -->
+    <div class="feature-batch-results-panel" id="feature-batch-results-panel">
+        <div class="batch-results-header">
+            <span>框选查询结果</span>
+            <button class="close-panel" title="关闭">&times;</button>
+        </div>
+        <div class="batch-results-content" id="batch-results-content">
+            <div class="batch-results-stats">
+                <div class="batch-results-count">共选中 <span id="batch-total-count">0</span> 个要素</div>
+                <div class="batch-results-layers">涉及 <span id="batch-layer-count">0</span> 个图层</div>
+            </div>
+            <div id="batch-results-container">
+                <div class="feature-info-empty">框选区域后，结果将显示在这里</div>
+            </div>
+        </div>
+        <div class="batch-results-actions">
+            <button class="batch-action-btn secondary" id="batch-clear-highlight">清除高亮</button>
+            <button class="batch-action-btn primary" id="batch-zoom-to-all">定位所有</button>
+        </div>
+    </div>
+
+    <!-- 新增：属性查图面板 -->
+    <div class="attribute-query-panel" id="attribute-query-panel">
+        <div class="feature-info-header">
+            <span>属性查图</span>
+            <button class="close-panel" title="关闭">&times;</button>
+        </div>
+        
+        <div class="query-section">
+            <div class="query-section-title">选择图层</div>
+            <div class="layer-selector" id="layer-selector">
+                <!-- 动态生成图层选择按钮 -->
+            </div>
+        </div>
+        
+        <div class="query-section">
+            <div class="query-section-title">查询条件</div>
+            <div class="query-control">
+                <label for="attribute-field">属性字段</label>
+                <select id="attribute-field">
+                    <option value="">请先选择图层</option>
+                </select>
+            </div>
+            <div class="query-control">
+                <label for="operator">操作符</label>
+                <select id="operator">
+                    <option value="equals">等于 (=)</option>
+                    <option value="contains">包含</option>
+                    <option value="startsWith">开头为</option>
+                    <option value="endsWith">结尾为</option>
+                </select>
+            </div>
+            <div class="query-control">
+                <label for="query-value">查询值</label>
+                <input type="text" id="query-value" placeholder="输入查询条件值">
+            </div>
+        </div>
+        
+        <div class="query-buttons">
+            <button class="query-button primary" id="execute-query">执行查询</button>
+            <button class="query-button secondary" id="clear-query">清除高亮</button>
+        </div>
+        
+        <div class="query-section">
+            <div class="query-section-title">查询结果 <span id="result-count">(0个)</span></div>
+            <div class="query-results" id="query-results">
+                <div class="feature-info-empty">查询结果将显示在这里</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工具按钮：在原有基础上添加新按钮 -->
+    <div class="tool-buttons">
+        <button class="tool-btn" id="toggle-layer-panel" title="图层管理">📂</button>
+        <!-- 新增功能按钮 -->
+        <button class="tool-btn" id="feature-query-toggle" title="图查属性 | 点击或框选要素查看属性">🔍</button>
+        <button class="tool-btn" id="attribute-query-toggle" title="属性查图 | 根据属性查询要素">📊</button>
+        <!-- 原有绘制功能按钮 -->
+        <button class="tool-btn" id="draw-point" title="绘制点 | 单击地图即可添加点要素">📍</button>
+        <button class="tool-btn" id="draw-line" title="绘制线 | 单击添加顶点，双击结束绘制">📐</button>
+        <button class="tool-btn" id="draw-polygon" title="绘制面 | 单击添加顶点，双击闭合图形">🔶</button>
+        <button class="tool-btn" id="draw-circle" title="绘制圆 | 单击定圆心，拖拽调半径，单击完成">⭕</button>
+        <button class="tool-btn" id="clear-draw" title="清除绘制 | 清空所有手绘图形要素">🧹</button>
+        <!-- 原有测量功能 -->
+        <button class="tool-btn" id="measure-distance" title="距离测量">📏</button>
+        <button class="tool-btn" id="measure-area" title="面积测量">🗺️</button>
+        <button class="tool-btn" id="clear-measure" title="清除测量">🗑️</button>
+        <button class="tool-btn" id="reset-map" title="重置地图">🔄</button>
+    </div>
+
+    <!-- 图层控制面板 (已移动到右上角，默认隐藏) -->
+    <div class="control-panel" id="layer-panel">
+        <div class="panel-header">
+            <span>图层管理</span>
+            <button class="close-panel" title="关闭">&times;</button>
+        </div>
+        <div style="font-size: 12px; color: #5D5A4F; margin-bottom: 15px; font-style: italic;">
+            提示：点击图层名称可缩放至数据范围 | 绘制功能：右侧工具栏📍📐🔶⭕，支持点/线/面/圆绘制
+        </div>
+        <div id="layer-list-container"></div>
+        <div id="overlayLayersContainer"></div>
+        <div id="emptyLayerTip" style="display:none;">暂无业务栅格图层</div>
+        <!-- 图查属性模式选择 -->
+        <div style="margin-top: 20px;">
+            <div style="font-size: 12px; color: #5D5A4F; margin-bottom: 8px; font-weight: 600;">图查属性模式</div>
+            <div class="feature-query-mode">
+                <button class="feature-query-mode-btn active" id="single-query-mode" data-mode="single">单击查询</button>
+                <button class="feature-query-mode-btn" id="box-query-mode" data-mode="box">框选查询</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
+
+    <script src="js/00_config_state.js"></script>
+    <script src="js/01_map_init.js"></script>
+    <script src="./js/08_overlay_layer_manager.js"></script>
+    <script src="js/02_wfs_layer_ui.js"></script>
+    <script src="js/03_panels_basemap_delegation.js"></script>
+    <script src="js/05_measure_draw.js"></script>
+    <script src="js/04_feature_query_core.js"></script>
+    <script src="js/06_feature_query_controls.js"></script>
+    <script src="js/07_attribute_query.js"></script>
+        <script src="js/09_raster_getfeatureinfo.js"></script>
+<script src="js/80_rasterops_config.js"></script>
+    <script src="js/81_rasterops_api.js"></script>
+    <script src="js/82_rasterops_panel.js"></script>
+
+
+</body>
+</html>
