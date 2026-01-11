@@ -7,7 +7,7 @@ console.log("系统启动...");
         const layerConfigs = [
             {
                 id: 'custom_layer_1',
-                name: 'shp1',
+                name: '山东省行政区划',
                 layerName: 'wrok1:面',
                 visible: true,
                 color: '#594A42', 
@@ -16,7 +16,7 @@ console.log("系统启动...");
             },
             {
                 id: 'custom_layer_2',
-                name: 'shp2',
+                name: '深圳行政区划',
                 layerName: 'wrok1:深圳行政区划',
                 visible: true,
                 color: '#3E5F64', 
