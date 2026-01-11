@@ -161,10 +161,13 @@
             position: absolute;
             top: 12vh;
             right: 20px;
-            z-index: 12; /* 比控制面板更高 */
+            z-index: 12;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px; /* 缩小间距避免溢出 */
+            max-height: 85vh; /* 限制高度 */
+            overflow-y: auto; /* 按钮过多时可滚动 */
+            padding-bottom: 10px;
         }
 
         .tool-btn {
@@ -208,6 +211,28 @@
             color: white;
             padding: 5px 10px;
         }
+
+        /* 针对移动端或小屏幕进一步缩放按钮 */
+        @media (max-height: 800px) {
+            .tool-btn {
+                width: 36px;
+                height: 36px;
+                font-size: 14px;
+            }
+        }
+
+        /* 路径分析面板特定样式 */
+        #path-analysis-panel {
+            display: none; /* 初始隐藏 */
+            width: 340px;
+            left: 20px; /* 改为左侧弹出，避免遮挡右侧按钮 */
+        }
+        #path-analysis-panel.active {
+            display: block;
+        }
+
+
+        
 
         /* ========== 绘制提示专属样式（与测量统一视觉） ========== */
         .draw-tooltip {

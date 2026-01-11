@@ -130,6 +130,8 @@
         <button class="tool-btn" id="measure-area" title="面积测量">🗺️</button>
         <button class="tool-btn" id="clear-measure" title="清除测量">🗑️</button>
         <button class="tool-btn" id="reset-map" title="重置地图">🔄</button>
+        <!-- 最短路径分析功能按钮 -->
+        <button class="tool-btn" id="path-analysis-toggle" title="路径规划 | 点击地图设置起点和终点">🚀</button>
     </div>
 
     <!-- 图层控制面板 (已移动到右上角，默认隐藏) -->
@@ -154,6 +156,41 @@
         </div>
     </div>
 
+    <!-- 路径分析面板 -->
+    <div class="attribute-query-panel" id="path-analysis-panel">
+        <div class="feature-info-header">
+            <span>最短路径分析</span>
+            <button class="close-panel" id="close-path-panel">&times;</button>
+        </div>
+        
+        <div class="query-section">
+            <div class="query-section-title">点选模式</div>
+            <div class="layer-selector" id="path-point-type-selector">
+                <button class="layer-selector-btn active" data-type="start">起点</button>
+                <button class="layer-selector-btn" data-type="waypoint">途径点</button>
+                <button class="layer-selector-btn" data-type="end">终点</button>
+                <!-- <button class="layer-selector-btn" data-type="barrier" style="color:#e53e3e;">障碍点</button> -->
+            </div>
+        </div>
+
+        <div class="query-section" id="path-results-section" style="display:none;">
+            <div class="query-section-title">分析结果</div>
+            <div class="batch-results-stats" style="background: #f0f7ff; padding: 10px; border-radius: 6px;">
+                <div style="font-size: 14px; color: #3A4759;">
+                    🛣️ 预估里程: <span id="path-distance" style="font-weight:700; color:#3D5A5F;">0.00</span> km<br>
+                    ⏱️ 预计耗时: <span id="path-duration" style="font-weight:700; color:#3D5A5F;">0</span> 分钟
+                </div>
+            </div>
+        </div>
+        
+        <div class="query-buttons">
+            <button class="query-button primary" id="execute-path-calc">计算路径</button>
+            <button class="query-button secondary" id="clear-path-analysis">重新开始</button>
+        </div>
+    </div>    
+
+
+
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
 
     <script src="js/00_config_state.js"></script>
@@ -165,11 +202,11 @@
     <script src="js/04_feature_query_core.js"></script>
     <script src="js/06_feature_query_controls.js"></script>
     <script src="js/07_attribute_query.js"></script>
-        <script src="js/09_raster_getfeatureinfo.js"></script>
-<script src="js/80_rasterops_config.js"></script>
+    <script src="js/09_raster_getfeatureinfo.js"></script>
+    <script src="js/80_rasterops_config.js"></script>
     <script src="js/81_rasterops_api.js"></script>
     <script src="js/82_rasterops_panel.js"></script>
-
+    <script src="js/11_path_analysis.js"></script>
 
 </body>
 </html>

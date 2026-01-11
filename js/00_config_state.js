@@ -73,3 +73,16 @@ console.log("系统启动...");
         let queryHighlightSource, queryHighlightLayer;
         let currentQueryLayer = null;
         let layerAttributes = {}; // 存储各图层的属性字段
+
+
+        // 存储路径分析的状态以及起点和终点的坐标
+        let isPathAnalysisActive = false;
+        let pathPoints = {
+            start: null,
+            end: null,
+            waypoints: [], // 存储途径点 [[lon, lat], ...]
+            barriers: []   // 存储障碍点
+        };
+        let pathSource, pathLayer;
+        let currentPathType = 'start'; // 当前正在点选的类型
+        let pathAnalysisPanel = document.getElementById('path-analysis-panel');

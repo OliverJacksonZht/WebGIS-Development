@@ -208,6 +208,28 @@
             map.addLayer(queryHighlightLayer);
         }
 
+        // 地图初始化时创建一个专门用于显示路线的矢量图层
+        function initPathLayer() {
+            pathSource = new ol.source.Vector();
+            pathLayer = new ol.layer.Vector({
+                source: pathSource,
+                style: new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: '#3388ff', // 路径颜色
+                        width: 6
+                    }),
+                    image: new ol.style.Circle({
+                        radius: 7,
+                        fill: new ol.style.Fill({ color: '#ff5500' }),
+                        stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+                    })
+                }),
+                zIndex: 2000 // 确保在最上层
+            });
+            map.addLayer(pathLayer);
+        }
+        initPathLayer(); // 立即执行初始化
+
         // 初始化测量工具提示
         function initMeasureTooltips() {
             // 帮助提示
