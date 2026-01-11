@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  rasterops:
+    build: .
+    container_name: rasterops
+    restart: unless-stopped
+    ports:
+      - "9001:9001"
+    environment:
+      # GeoServer
+      - GEOSERVER_URL=http://10.8.49.5:8080/geoserver
+      - GEOSERVER_USER=admin
+      - GEOSERVER_PASSWORD=geoserver
+      - GEOSERVER_WORKSPACE=wrok1
+
+      # rasterops
+      - RASTEROPS_DATA_DIR=/data
+      - RASTEROPS_PUBLIC_BASE_URL=http://10.8.49.5:9001
+
+      # CORS（你的前端静态页面端口，先用 * 省事，课程设计足够）
+      - CORS_ALLOW_ORIGINS=*
+
+    volumes:
+      - ./data:/data
