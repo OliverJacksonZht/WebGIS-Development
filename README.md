@@ -25,9 +25,11 @@ webgis_split/
 │   ├── 04_feature_query_core.js  # 图查属性：地图点击查询 + 弹窗展示
 │   ├── 05_measure_draw.js        # 鼠标坐标/绘制提示 + 测量/绘制核心
 │   ├── 06_feature_query_controls.js # 图查属性：开关/模式切换/框选查询
-│   ├── 07_attribute_query.js     # 属性查图：开关 + 执行/清除查询
+│   ├── 07_attribute_query.js        # 属性查图：开关 + 执行/清除查询
 │   ├── 08_overlay_layer_manager.js # 覆盖图层管理（WMS/栅格图层）
 │   ├── 09_raster_getfeatureinfo.js # 栅格图层点查（WMS GetFeatureInfo）
+│   ├── 10_buffer_analysis.js     # 缓冲区分析
+│   ├── 11_path_analysis.js       # 最短路径分析
 │   ├── 80_rasterops_config.js    # 栅格服务配置
 │   ├── 81_rasterops_api.js       # 栅格服务API封装
 │   └── 82_rasterops_panel.js     # 栅格服务UI面板
@@ -72,6 +74,10 @@ webgis_split/
 - ✅ 栅格计算器（gdal_calc语法）
 - ✅ 高光谱与可见光影像融合
 - ✅ 文件资产管理和删除
+
+### 空间分析功能（spatial analysis）
+- ✅ 缓冲区分析（点、线、面要素缓冲区生成）
+- ✅ 最短路径分析（网络分析，支持起点终点设置）
 
 ## 快速开始
 
@@ -118,6 +124,10 @@ webgis_split/
 2. **属性查图**：在属性面板输入查询条件执行查询
 3. **栅格查询**：点击栅格图层查看像素值信息
 
+### 空间分析功能
+1. **缓冲区分析**：选择要素设置缓冲距离，生成缓冲区区域
+2. **最短路径分析**：设置起点和终点，计算最优路径
+
 ### 栅格处理
 详细的栅格处理服务使用说明请参考：[webgis_rasterops_bundle/frontend/docs/INTEGRATION.md](webgis_rasterops_bundle/frontend/docs/INTEGRATION.md)
 
@@ -131,7 +141,7 @@ webgis_split/
 
 项目采用模块化架构，各JavaScript文件按功能分离：
 - 配置文件（00）：全局变量和配置
-- 核心模块（01-09）：基础GIS功能
+- 核心模块（01-11）：基础GIS功能
 - 扩展模块（80-82）：栅格处理功能
 
 修改功能时请参考对应模块的注释和代码结构。
