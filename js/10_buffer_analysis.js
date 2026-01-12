@@ -1,5 +1,5 @@
 // js/10_buffer_analysis.js
-// 缓冲区分析模块 - 最终修复版 (解决UI互斥Bug)
+// 缓冲区分析模块 - (已移除互斥逻辑，点击时不关闭其他面板)
 
 document.addEventListener('DOMContentLoaded', () => {
     initBufferAnalysis();
@@ -17,7 +17,7 @@ function initBufferAnalysis() {
     const layerSelect = document.getElementById('buffer-layer-select');
 
     if (!toggleBtn || !panel) {
-        console.warn("未找到缓冲区分析面板元素，请确保HTML已更新");
+        console.warn("未找到缓冲区分析面板元素");
         return;
     }
 
@@ -33,66 +33,48 @@ function initBufferAnalysis() {
     }
 
     // ==========================================
-    // 3. 核心修复：UI互斥逻辑 (使用事件委托)
+    // 3. UI 交互逻辑 (已修改：允许面板共存)
     // ==========================================
-    
-    // 系统中所有其他面板的ID列表 (点击缓冲区按钮时，需要强制关闭这些)
-    const otherPanelIds = [
-        'layer-panel',                  // 图层管理
-        'attribute-query-panel',        // 属性查图
-        'feature-info-popup',           // 图查属性 (弹窗)
-        'feature-batch-results-panel',  // 框选结果
-        'path-analysis-panel'           // 路径分析
-    ];
 
-    // --- 逻辑 A: 点击【缓冲区按钮】---
-    // 1. 关闭所有其他面板
-    // 2. 切换缓冲区面板的显示状态
+    // --- 点击【缓冲区按钮】逻辑 ---
     toggleBtn.addEventListener('click', (e) => {
-        // 阻止事件冒泡，防止触发下面的全局关闭逻辑
-        e.stopPropagation();
+        e.stopPropagation(); // 阻止冒泡
 
-        // 强制关闭其他所有已知面板
-        // otherPanelIds.forEach(id => {
-        //     const el = document.getElementById(id);
-        //     if (el) el.style.display = 'none';
-        // });
-        
-        // 关闭底图选择器（特例）
+        // [修改点]：这里删除了“强制关闭其他面板”的逻辑
+        // 现在点击缓冲区按钮，其他已打开的面板（如图层管理）将保持打开状态
+
+        // 仅关闭底图选择器（可选，防止菜单遮挡，如果不需要也可以注释掉）
         const basemapSelector = document.getElementById('basemap-selector');
         if (basemapSelector) basemapSelector.classList.remove('active');
 
-        // 切换自己
+        // 切换缓冲区面板自身的显示/隐藏
         const isHidden = panel.style.display === 'none' || panel.style.display === '';
         panel.style.display = isHidden ? 'block' : 'none';
         
-        if (isHidden) { // 如果是刚刚打开
+        if (isHidden) {
             updateStatus(`准备就绪`);
         }
     });
 
-    // --- 逻辑 B: 点击【其他工具按钮】 (事件委托) ---
-    // 监听整个文档的点击。如果点的是工具栏按钮，且不是缓冲区按钮，则关闭缓冲区面板。
-    // 这种方式不会干扰其他按钮原本的 onclick/addEventListener 逻辑。
+    // --- 点击【其他工具按钮】逻辑 ---
+    // [保留逻辑]：为了避免屏幕太乱，点击其他工具按钮时，仍然建议关闭当前缓冲区面板
+    // 如果你也希望点击其他按钮时不关闭缓冲区面板，可以将下面这段 addEventListener 代码整体注释掉
     document.addEventListener('click', (e) => {
-        // 查找被点击元素是否是 .tool-btn 或其子元素
         const targetBtn = e.target.closest('.tool-btn');
-
-        // 如果点击的是工具按钮，且 ID 不是 buffer-analysis-toggle
+        // 如果点击了任意工具按钮，且不是缓冲区按钮
         if (targetBtn && targetBtn.id !== 'buffer-analysis-toggle') {
-            // 安全关闭缓冲区面板
             panel.style.display = 'none';
         }
     });
 
-    // 阻止面板内部点击触发关闭 (防止在面板上操作时误关)
+    // 防止面板内部点击冒泡导致面板关闭
     panel.addEventListener('click', (e) => {
         e.stopPropagation();
     });
 
     // ==========================================
 
-    // 4. 面板内部功能按钮事件
+    // 4. 面板内部功能绑定
     if (closeBtn) {
         closeBtn.addEventListener('click', () => {
             panel.style.display = 'none';
@@ -118,6 +100,7 @@ function initBufferAnalysis() {
 
     if (clearBtn) {
         clearBtn.addEventListener('click', () => {
+            // 安全清除
             if (window.state && window.state.bufferSource) {
                 window.state.bufferSource.clear();
                 updateStatus("结果已清除");
@@ -126,80 +109,93 @@ function initBufferAnalysis() {
     }
 }
 
-// 核心分析函数 (Turf.js 计算)
+// 核心分析函数 (Turf.js 计算) - 保持不变
 function executeBuffer(layerId, distanceMeters) {
     updateStatus("正在计算...", "blue");
 
-    const targetLayer = vectorLayers[layerId];
-    if (!targetLayer) {
-        alert("未找到该图层数据，请确保图层已加载。");
+    // 1. 检查数据源图层
+    if (typeof vectorLayers === 'undefined' || !vectorLayers[layerId]) {
+        alert("未找到该图层数据，请确保图层配置正确。");
         return;
     }
-
+    const targetLayer = vectorLayers[layerId];
     const source = targetLayer.getSource();
     const features = source.getFeatures();
 
     if (features.length === 0) {
-        alert("该图层当前没有要素（可能正在加载中），请稍后再试。");
-        updateStatus("图层无数据");
+        alert("该图层当前没有要素（可能是数据正在加载中或为空），请稍后再试。");
+        updateStatus("图层无数据", "red");
         return;
     }
 
+    // 2. 检查 Turf 库
     if (typeof turf === 'undefined') {
         alert("系统缺少 Turf.js 库，无法进行计算。");
         return;
     }
 
-    const format = new ol.format.GeoJSON();
-    
-    // 清除旧结果
-    if (window.state.bufferSource) {
-        window.state.bufferSource.clear();
+    // 3. 检查结果图层是否存在 (防御性编程)
+    if (!window.state || !window.state.bufferSource) {
+        console.warn("缓冲区图层未初始化，正在尝试重建...");
+        window.state = window.state || {};
+        window.state.bufferSource = new ol.source.Vector();
+        window.state.bufferLayer = new ol.layer.Vector({
+            source: window.state.bufferSource,
+            style: new ol.style.Style({
+                fill: new ol.style.Fill({ color: 'rgba(0, 153, 255, 0.5)' }),
+                stroke: new ol.style.Stroke({ color: 'rgba(0, 102, 204, 0.8)', width: 2 })
+            }),
+            zIndex: 9999
+        });
+        window.map.addLayer(window.state.bufferLayer);
     }
 
+    // 清空旧结果
+    window.state.bufferSource.clear();
+
+    const format = new ol.format.GeoJSON();
     let successCount = 0;
 
     try {
         features.forEach(feature => {
-            // 坐标系转换：EPSG:3857 (OpenLayers) -> EPSG:4326 (Turf)
+            // 4. 坐标转换与计算
             const geoJson = format.writeFeatureObject(feature, {
-                featureProjection: 'map' in window ? map.getView().getProjection() : 'EPSG:3857',
+                featureProjection: window.map.getView().getProjection(),
                 dataProjection: 'EPSG:4326' 
             });
 
-            // 执行缓冲区计算
             const bufferedGeoJson = turf.buffer(geoJson, distanceMeters, {
                 units: 'meters'
             });
 
             if (bufferedGeoJson) {
-                // 坐标系转换回：EPSG:4326 -> EPSG:3857
                 const bufferedFeature = format.readFeature(bufferedGeoJson, {
                     dataProjection: 'EPSG:4326',
-                    featureProjection: 'map' in window ? map.getView().getProjection() : 'EPSG:3857'
+                    featureProjection: window.map.getView().getProjection()
                 });
-                
-                // 继承原要素的属性
-                bufferedFeature.setProperties(feature.getProperties());
                 
                 window.state.bufferSource.addFeature(bufferedFeature);
                 successCount++;
             }
         });
 
-        // 自动缩放到结果范围
-        if (successCount > 0 && window.state.bufferSource.getFeatures().length > 0) {
+        // 5. 缩放到结果范围
+        if (successCount > 0) {
             const extent = window.state.bufferSource.getExtent();
             if (!ol.extent.isEmpty(extent)) {
-                map.getView().fit(extent, { padding: [50, 50, 50, 50], duration: 1000 });
+                window.map.getView().fit(extent, { 
+                    padding: [100, 100, 100, 100], 
+                    duration: 1000 
+                });
             }
+            updateStatus(`分析成功，生成 ${successCount} 个缓冲区`, "green");
+        } else {
+            updateStatus("分析完成，但未生成有效图形", "orange");
         }
-        
-        updateStatus(`成功生成 ${successCount} 个缓冲区`, "green");
 
     } catch (e) {
         console.error("缓冲区分析错误:", e);
-        updateStatus("分析发生错误", "red");
+        updateStatus("分析发生错误，请查看控制台", "red");
     }
 }
 
