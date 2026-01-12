@@ -17,7 +17,7 @@ class JobResult:
 class JobManager:
     """极简线程池任务管理：创建 job -> 后台执行 -> 更新 DB 状态"""
 
-    def __init__(self, db: DB, max_workers: int = 2):
+    def __init__(self, db: DB, max_workers: int = 16):
         self.db = db
         self.pool = ThreadPoolExecutor(max_workers=max_workers)
 
